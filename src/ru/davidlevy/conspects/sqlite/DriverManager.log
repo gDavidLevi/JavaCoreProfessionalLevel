@@ -1,0 +1,3 @@
+DriverManager.getConnection("jdbc:sqlite:src/ru/davidlevy/lesson2/conspect/sqlite/database.sqlite")
+    trying org.sqlite.JDBC
+getConnection returning org.sqlite.JDBC
