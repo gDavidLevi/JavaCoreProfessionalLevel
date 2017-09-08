@@ -2,16 +2,13 @@ package ru.davidlevy.lesson7.homework;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.List;
 
 /**
  * Класс обрабатывающий тесты
  */
 final class TestMaker {
-
     /**
      * Запуск тестирования класса
      *
@@ -19,7 +16,7 @@ final class TestMaker {
      */
     public static void start(Class testClass) {
         try {
-            getAnnotateAndExecute(testClass);
+            testing(testClass);
         } catch (InvocationTargetException | InstantiationException | IllegalAccessException e) {
             e.printStackTrace();
         }
@@ -32,7 +29,7 @@ final class TestMaker {
      */
     public static void start(final String classFullName) {
         try {
-            getAnnotateAndExecute(Class.forName(classFullName));
+            testing(Class.forName(classFullName));
         } catch (InvocationTargetException | InstantiationException | ClassNotFoundException | IllegalAccessException e) {
             e.printStackTrace();
         }
@@ -46,7 +43,7 @@ final class TestMaker {
      * @throws IllegalAccessException    ошибка
      * @throws InstantiationException    ошибка
      */
-    private static void getAnnotateAndExecute(Class testClass) throws InvocationTargetException, IllegalAccessException, InstantiationException {
+    private static void testing(Class testClass) throws InvocationTargetException, IllegalAccessException, InstantiationException {
         /* Используя Reflection API получаем из testClass
         массив всех объявленных в нём методов */
         Method[] declaredMethods = testClass.getDeclaredMethods();
@@ -58,22 +55,24 @@ final class TestMaker {
 
         /* Обработка аннотаций.
         Заполнение списка invokeMethods по приоритетам */
-        boolean isOneBeforeSuite = false;
-        boolean isOneAfterSuite = false;
+        Method beforeSuite = null;
+        Method afterSuite = null;
         for (Method oneOf : declaredMethods) {
             if (oneOf.getDeclaredAnnotations().length == 0)
                 continue;
             /* Если обнаружен дубль @BeforeSuite */
             if (oneOf.isAnnotationPresent(BeforeSuite.class)) {
-                if (isOneBeforeSuite)
+                if (beforeSuite != null)
                     throw new RuntimeException("Аннотация @BeforeSuite дублируется в классе.");
-                isOneBeforeSuite = true;
+                beforeSuite = oneOf;
+                continue;
             }
             /* Если обнаружен дубль @AfterSuite */
             if (oneOf.isAnnotationPresent(AfterSuite.class)) {
-                if (isOneAfterSuite)
+                if (afterSuite != null)
                     throw new RuntimeException("Аннотация @AfterSuite дублируется в классе.");
-                isOneAfterSuite = true;
+                afterSuite = oneOf;
+                continue;
             }
             /* Добавим в список invokeMethods только те методы,
             у которых приоритет лежит в диапазоне от 1 до 10 */
@@ -93,14 +92,12 @@ final class TestMaker {
         });
 
         /* Добавим в начала списка invokeMethods @BeforeSuite */
-        for (Method method : declaredMethods)
-            if (method.isAnnotationPresent(BeforeSuite.class))
-                invokeMethods.add(0, method);
+        if (beforeSuite != null)
+            invokeMethods.add(0, beforeSuite);
 
         /* Добавим в конец списка invokeMethods @AfterSuite */
-        for (Method method : declaredMethods)
-            if (method.isAnnotationPresent(AfterSuite.class))
-                invokeMethods.add(method);
+        if (afterSuite != null)
+            invokeMethods.add(afterSuite);
 
         /* Создаем экземпляр класса для запуска методов */
         Object object = testClass.newInstance();
