@@ -1,5 +1,6 @@
 package ru.davidlevy.lesson7.homework;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -10,7 +11,42 @@ import java.util.List;
  * Класс обрабатывающий тесты
  */
 final class TestMaker {
-    static void start(Class testClass) throws Exception {
+
+    /**
+     * Запуск тестирования класса
+     *
+     * @param testClass класс для тестирования
+     */
+    public static void start(Class testClass) {
+        try {
+            getAnnotateAndExecute(testClass);
+        } catch (InvocationTargetException | InstantiationException | IllegalAccessException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Запуск тестирования класса (перегруженный метод)
+     *
+     * @param classFullName полное наименование класса
+     */
+    public static void start(final String classFullName) {
+        try {
+            getAnnotateAndExecute(Class.forName(classFullName));
+        } catch (InvocationTargetException | InstantiationException | ClassNotFoundException | IllegalAccessException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Тестирование
+     *
+     * @param testClass тестируемый класс
+     * @throws InvocationTargetException ошибка
+     * @throws IllegalAccessException    ошибка
+     * @throws InstantiationException    ошибка
+     */
+    private static void getAnnotateAndExecute(Class testClass) throws InvocationTargetException, IllegalAccessException, InstantiationException {
         /* Используя Reflection API получаем из testClass
         массив всех объявленных в нём методов */
         Method[] declaredMethods = testClass.getDeclaredMethods();
@@ -24,25 +60,27 @@ final class TestMaker {
         Заполнение списка invokeMethods по приоритетам */
         boolean isOneBeforeSuite = false;
         boolean isOneAfterSuite = false;
-        for (Method test : declaredMethods) {
+        for (Method oneOf : declaredMethods) {
+            if (oneOf.getDeclaredAnnotations().length == 0)
+                continue;
             /* Если обнаружен дубль @BeforeSuite */
-            if (test.isAnnotationPresent(BeforeSuite.class)) {
+            if (oneOf.isAnnotationPresent(BeforeSuite.class)) {
                 if (isOneBeforeSuite)
-                    throw new RuntimeException("Аннотация @BeforeSuite дублируется.");
+                    throw new RuntimeException("Аннотация @BeforeSuite дублируется в классе.");
                 isOneBeforeSuite = true;
             }
             /* Если обнаружен дубль @AfterSuite */
-            if (test.isAnnotationPresent(AfterSuite.class)) {
+            if (oneOf.isAnnotationPresent(AfterSuite.class)) {
                 if (isOneAfterSuite)
-                    throw new RuntimeException("Аннотация @AfterSuite дублируется.");
+                    throw new RuntimeException("Аннотация @AfterSuite дублируется в классе.");
                 isOneAfterSuite = true;
             }
             /* Добавим в список invokeMethods только те методы,
             у которых приоритет лежит в диапазоне от 1 до 10 */
-            if (test.isAnnotationPresent(Test.class)) {
-                int priority = test.getAnnotation(Test.class).priority();
+            if (oneOf.isAnnotationPresent(Test.class)) {
+                int priority = oneOf.getAnnotation(Test.class).priority();
                 if (priority <= 10 & priority >= 1)
-                    invokeMethods.add(test);
+                    invokeMethods.add(oneOf);
             }
         }
 
@@ -64,10 +102,11 @@ final class TestMaker {
             if (method.isAnnotationPresent(AfterSuite.class))
                 invokeMethods.add(method);
 
-        /* Выполним все тесты из списка invokeMethods */
-        for (Method oneOf : invokeMethods) {
-            //System.out.print(new SimpleDateFormat("HH:mm:ss:S").format(Calendar.getInstance().getTime()) + " ");
-            oneOf.invoke(null);
-        }
+        /* Создаем экземпляр класса для запуска методов */
+        Object object = testClass.newInstance();
+
+        /* Выполнить все тесты */
+        for (Method oneOf : invokeMethods)
+            oneOf.invoke(object); // Можно с null
     }
 }
